@@ -19,13 +19,13 @@ public class ImageProcessingService
         }
     }
 
-    public async Task<(string OptimizedImagePath, long OriginalSize, long OptimizedSize)> ProcessImageAsync(IFormFile imageFile)
+    public async Task<(string OptimizedImagePath, long OriginalSize, long OptimizedSize)> ProcessImageAsync(IFormFile imageFile, string uniqueFileName)
     {
         if (imageFile == null || imageFile.Length == 0)
             throw new ArgumentException("Invalid image file");
 
-        var originalFilePath = Path.Combine(_imagesPath, imageFile.FileName);
-        var optimizedFilePath = Path.Combine(_imagesPath, Path.GetFileNameWithoutExtension(imageFile.FileName) + ".webp");
+        var originalFilePath = Path.Combine(_imagesPath, uniqueFileName);
+        var optimizedFilePath = Path.Combine(_imagesPath, Path.GetFileNameWithoutExtension(uniqueFileName) + ".webp");
 
         // Guardar la imagen original
         using (var stream = new FileStream(originalFilePath, FileMode.Create))
@@ -46,7 +46,7 @@ public class ImageProcessingService
         // Eliminar la imagen original si no es necesaria
         File.Delete(originalFilePath);
 
-        // Devolver la ruta de la imagen optimizada junto con los tamaños
         return (optimizedFilePath, originalSize, optimizedSize);
     }
+
 }

@@ -15,26 +15,31 @@ public class ImagesController : ControllerBase
     }
 
     [HttpPost("upload")]
-    public async Task<IActionResult> UploadImage([FromForm] IFormFile image)
+    public async Task<IActionResult> UploadImage([FromForm] List<IFormFile> images)
     {
         try
         {
-            if (image == null || image.Length == 0)
-                return BadRequest("Please upload a valid image file.");
+            if (images == null || images.Count == 0)
+                return BadRequest("Please upload at least one valid image file.");
 
-            var (optimizedImagePath, originalSize, optimizedSize) = await _imageProcessingService.ProcessImageAsync(image);
+            var savedImages = new List<string>();
 
-            return Ok(new
+            foreach (var image in images)
             {
-                Message = "Image processed successfully",
-                OriginalSizeKB = originalSize / 1024,
-                OptimizedSizeKB = optimizedSize / 1024,
-                OptimizedImagePath = optimizedImagePath
-            });
+                // Generar un nombre de archivo único para evitar sobrescritura
+                var uniqueFileName = Path.GetFileNameWithoutExtension(image.FileName) + "_" + Guid.NewGuid().ToString() + Path.GetExtension(image.FileName);
+                var (optimizedImagePath, originalSize, optimizedSize) = await _imageProcessingService.ProcessImageAsync(image, uniqueFileName);
+
+                savedImages.Add(optimizedImagePath); // Guardar la ruta de la imagen optimizada
+            }
+
+            return Ok(new { Message = "Images processed successfully", SavedImages = savedImages });
         }
         catch (Exception ex)
         {
             return StatusCode(500, $"Internal server error: {ex.Message}");
         }
     }
+
+
 }
