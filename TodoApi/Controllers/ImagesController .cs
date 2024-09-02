@@ -2,9 +2,10 @@
 using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Threading.Tasks;
+using TodoApi.Services;
 
-[Route("api/[controller]")]
 [ApiController]
+[Route("api/[controller]")]
 public class ImagesController : ControllerBase
 {
     private readonly ImageProcessingService _imageProcessingService;
@@ -15,31 +16,21 @@ public class ImagesController : ControllerBase
     }
 
     [HttpPost("upload")]
-    public async Task<IActionResult> UploadImage([FromForm] List<IFormFile> images)
+    public async Task<IActionResult> UploadImage(IFormFile image)
     {
+        if (image == null || image.Length == 0)
+        {
+            return BadRequest("No image file provided");
+        }
+
         try
         {
-            if (images == null || images.Count == 0)
-                return BadRequest("Please upload at least one valid image file.");
-
-            var savedImages = new List<string>();
-
-            foreach (var image in images)
-            {
-                // Generar un nombre de archivo único para evitar sobrescritura
-                var uniqueFileName = Path.GetFileNameWithoutExtension(image.FileName) + "_" + Guid.NewGuid().ToString() + Path.GetExtension(image.FileName);
-                var (optimizedImagePath, originalSize, optimizedSize) = await _imageProcessingService.ProcessImageAsync(image, uniqueFileName);
-
-                savedImages.Add(optimizedImagePath); // Guardar la ruta de la imagen optimizada
-            }
-
-            return Ok(new { Message = "Images processed successfully", SavedImages = savedImages });
+            string imagePath = await _imageProcessingService.SaveImageAsync(image);
+            return Ok(new { imagePath });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, $"Internal server error: {ex.Message}");
+            return StatusCode(500, $"Internal server error: {ex}");
         }
     }
-
-
 }

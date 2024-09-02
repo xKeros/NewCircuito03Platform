@@ -25,6 +25,12 @@ public class TestUser
     [BsonElement("refreshToken")]
     public string RefreshToken { get; set; } // New field for Refresh Token
 
+    [BsonElement("oAuthProvider")]
+    public string OAuthProvider { get; set; }
+
+    [BsonElement("oAuthProviderId")]
+    public string OAuthProviderId { get; set; }
+
     public void SetPassword(string plainTextPassword)
     {
         using (var md5 = System.Security.Cryptography.MD5.Create())

@@ -80,11 +80,37 @@ namespace TodoApi.Services
                 return BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
             }
         }
+
+        // Método para obtener un usuario por token de refresco
         public async Task<TestUser> GetUserByRefreshTokenAsync(string refreshToken)
         {
             return await _testUsers.Find(user => user.RefreshToken == refreshToken).FirstOrDefaultAsync();
         }
 
+        // Método para obtener o crear un usuario basado en OAuth
+        public async Task<TestUser> GetOrCreateOAuthUserAsync(string email, string provider, string providerId, string fullName)
+        {
+            var user = await GetTestUserByUsernameAsync(email);
+
+            if (user == null)
+            {
+                user = new TestUser
+                {
+                    Username = email,
+                    Fullname = fullName,
+                    OAuthProvider = provider,
+                    OAuthProviderId = providerId
+                };
+                await CreateTestUserAsync(user);
+            }
+            else if (user.OAuthProvider != provider || user.OAuthProviderId != providerId)
+            {
+                user.OAuthProvider = provider;
+                user.OAuthProviderId = providerId;
+                await UpdateTestUserAsync(user._id.ToString(), user);
+            }
+
+            return user;
+        }
     }
 }
-

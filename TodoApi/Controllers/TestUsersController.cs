@@ -1,4 +1,7 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Google;
+using Microsoft.AspNetCore.Authentication.MicrosoftAccount;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using MongoDB.Bson;
 using System.IdentityModel.Tokens.Jwt;
@@ -127,7 +130,7 @@ namespace TodoApi.Controllers
             {
                 HttpOnly = true,
                 Secure = true, // Asegúrate de que esto esté en true en producción
-                SameSite = SameSiteMode.None,
+                SameSite = SameSiteMode.Unspecified,
                 Expires = DateTime.UtcNow.AddHours(1) // Duración de 1 hora para el token
             };
             Response.Cookies.Append("token", token, tokenCookieOptions);
@@ -151,13 +154,14 @@ namespace TodoApi.Controllers
             };
             Response.Cookies.Append("userId", user._id.ToString(), userIdCookieOptions);
 
-            // Return the user ID in the response body
-            return Ok(new { UserId = user._id.ToString() });
+            // Return the user ID in the response body along with other details if needed
+            return Ok(new
+            {
+                UserId = user._id.ToString(),
+                Token = token,
+                RefreshToken = refreshToken
+            });
         }
-
-
-
-
 
         // POST: api/TestUsers/refresh
         [HttpPost("refresh")]
@@ -187,6 +191,147 @@ namespace TodoApi.Controllers
             return Ok(new { Token = newJwtToken, RefreshToken = newRefreshToken });
         }
 
+        // GET: api/TestUsers/login/google
+        [HttpGet("login/google")]
+        public IActionResult GoogleLogin()
+        {
+            var properties = new AuthenticationProperties { RedirectUri = Url.Action("GoogleCallback") };
+            return Challenge(properties, GoogleDefaults.AuthenticationScheme);
+        }
+
+        // GET: api/TestUsers/login/microsoft
+        [HttpGet("login/microsoft")]
+        public IActionResult MicrosoftLogin()
+        {
+            var properties = new AuthenticationProperties { RedirectUri = Url.Action("MicrosoftCallback") };
+            return Challenge(properties, MicrosoftAccountDefaults.AuthenticationScheme);
+        }
+
+        // GET: api/TestUsers/google-callback
+        [HttpGet("google-callback")]
+        public async Task<IActionResult> GoogleCallback()
+        {
+            var result = await HttpContext.AuthenticateAsync(GoogleDefaults.AuthenticationScheme);
+
+            if (result?.Succeeded != true)
+            {
+                return BadRequest("OAuth authentication failed");
+            }
+
+            // Get or create user based on the OAuth information
+            var email = result.Principal.FindFirst(ClaimTypes.Email)?.Value;
+            var user = await _mongoDbService.GetTestUserByUsernameAsync(email);
+
+            if (user == null)
+            {
+                // Create a new user if they don't exist
+                user = new TestUser
+                {
+                    Username = email,
+                    Fullname = result.Principal.FindFirst(ClaimTypes.Name)?.Value,
+                    // Set other properties as needed
+                };
+                await _mongoDbService.CreateTestUserAsync(user);
+            }
+
+            // Generate and set tokens as in the regular login method
+            var token = GenerateJwtToken(user);
+            var refreshToken = GenerateRefreshToken();
+
+            // Set the tokens as HttpOnly cookies with expiration times (similar to the regular login method)
+            var tokenCookieOptions = new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true, // Asegúrate de que esto esté en true en producción
+                SameSite = SameSiteMode.Unspecified,
+                Expires = DateTime.UtcNow.AddHours(1)
+            };
+            Response.Cookies.Append("token", token, tokenCookieOptions);
+
+            var refreshTokenCookieOptions = new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.None,
+                Expires = DateTime.UtcNow.AddDays(7)
+            };
+            Response.Cookies.Append("refreshToken", refreshToken, refreshTokenCookieOptions);
+
+            var userIdCookieOptions = new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.None,
+                Expires = DateTime.UtcNow.AddDays(7)
+            };
+            Response.Cookies.Append("userId", user._id.ToString(), userIdCookieOptions);
+
+            return Ok(new { UserId = user._id.ToString(), Token = token, RefreshToken = refreshToken });
+        }
+
+        // GET: api/TestUsers/microsoft-callback
+        [HttpGet("microsoft-callback")]
+        public async Task<IActionResult> MicrosoftCallback()
+        {
+            var result = await HttpContext.AuthenticateAsync(MicrosoftAccountDefaults.AuthenticationScheme);
+
+            if (result?.Succeeded != true)
+            {
+                return BadRequest("OAuth authentication failed");
+            }
+
+            // Get or create user based on the OAuth information
+            var email = result.Principal.FindFirst(ClaimTypes.Email)?.Value;
+            var user = await _mongoDbService.GetTestUserByUsernameAsync(email);
+
+            if (user == null)
+            {
+                // Create a new user if they don't exist
+                user = new TestUser
+                {
+                    Username = email,
+                    Fullname = result.Principal.FindFirst(ClaimTypes.Name)?.Value,
+                    // Set other properties as needed
+                };
+                await _mongoDbService.CreateTestUserAsync(user);
+            }
+
+            // Generate and set tokens as in the regular login method
+            var token = GenerateJwtToken(user);
+            var refreshToken = GenerateRefreshToken();
+
+            // Set the tokens as HttpOnly cookies with expiration times (similar to the regular login method)
+            var tokenCookieOptions = new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true, // Asegúrate de que esto esté en true en producción
+                SameSite = SameSiteMode.Unspecified,
+                Expires = DateTime.UtcNow.AddHours(1)
+            };
+            Response.Cookies.Append("token", token, tokenCookieOptions);
+
+            var refreshTokenCookieOptions = new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.None,
+                Expires = DateTime.UtcNow.AddDays(7)
+            };
+            Response.Cookies.Append("refreshToken", refreshToken, refreshTokenCookieOptions);
+
+            var userIdCookieOptions = new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.None,
+                Expires = DateTime.UtcNow.AddDays(7)
+            };
+            Response.Cookies.Append("userId", user._id.ToString(), userIdCookieOptions);
+
+            return Ok(new { UserId = user._id.ToString(), Token = token, RefreshToken = refreshToken });
+        }
+
+        // Helper method to generate JWT token
         private string GenerateJwtToken(TestUser user)
         {
             var jwtSettings = _configuration.GetSection("JwtSettings").Get<JwtSettings>();
@@ -219,6 +364,7 @@ namespace TodoApi.Controllers
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
+        // Helper method to generate Refresh Token
         private string GenerateRefreshToken()
         {
             var randomNumber = new byte[32];
