@@ -2,24 +2,30 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Hosting;
 using MongoDB.Driver;
 using TodoApi.Services;
+using Microsoft.Extensions.DependencyInjection;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddNewtonsoftJson(); // Agregar Newtonsoft.Json para la serialización y deserialización de JSON
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // Configurar CORS para permitir cualquier origen
+// Configurar CORS para permitir el origen específico de tu frontend
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAllOrigins",
+    options.AddPolicy("AllowSpecificOrigin",
         builder =>
         {
-            builder.AllowAnyOrigin()
+            builder.WithOrigins("http://localhost:5173") // Especifica la URL del frontend
                    .AllowAnyHeader()
-                   .AllowAnyMethod();
+                   .AllowAnyMethod()
+                   .AllowCredentials(); // Permitir el envío de credenciales (cookies, tokens, etc.)
         });
 });
+
 
 // Configurar la conexión a MongoDB y registrar el servicio en el contenedor de dependencias
 builder.Services.AddSingleton<IMongoClient, MongoClient>(sp =>
@@ -49,11 +55,12 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-// Aplica la política de CORS
-app.UseCors("AllowAllOrigins");
+// Aplica la política de CORS específica
+app.UseCors("AllowSpecificOrigin");
 
 app.UseAuthorization();
 
 app.MapControllers();
 
 app.Run();
+
